@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: hiresense-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME:-hiresense}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hiresense"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hiresense-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  spring-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hiresense-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-hiresense}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - JWT_SECRET=${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOCAL_STORAGE_DIR=/uploads
+      - AI_SERVICE_URL=http://fastapi-ai:8000
+      - DEV_SEED_ENABLED=${DEV_SEED_ENABLED:-true}
+    volumes:
+      - uploads:/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      spring-backend:
+        condition: service_started
+      fastapi-ai:
+        condition: service_healthy
+
+  fastapi-ai:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: hiresense-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-hiresense}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock-key}
+      - GROQ_API_KEY=${GROQ_API_KEY:?Set GROQ_API_KEY in .env for real resume parsing}
+      - GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-120b}
+      - AI_MOCK_MODE=${AI_MOCK_MODE:-false}
+      - LOCAL_STORAGE_DIR=/uploads
+      - BACKEND_CALLBACK_URL=http://spring-backend:8080/api/internal/resumes/callback
+    volumes:
+      - uploads:/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-worker:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: hiresense-celery-worker
+    command: celery -A app.celery_app:celery_app worker --loglevel=info
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-hiresense}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock-key}
+      - GROQ_API_KEY=${GROQ_API_KEY:?Set GROQ_API_KEY in .env for real resume parsing}
+      - GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-120b}
+      - AI_MOCK_MODE=${AI_MOCK_MODE:-false}
+      - LOCAL_STORAGE_DIR=/uploads
+      - BACKEND_CALLBACK_URL=http://spring-backend:8080/api/internal/resumes/callback
+    volumes:
+      - uploads:/uploads
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:

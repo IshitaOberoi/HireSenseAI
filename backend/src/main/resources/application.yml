@@ -1,0 +1,41 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: backend-springboot
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hiresense}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate # Database schema is managed via Flyway
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+# JWT security configurations
+jwt:
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  expiration: 3600000 # 1 hour in ms
+
+app:
+  ai-service:
+    url: ${AI_SERVICE_URL:http://localhost:8000}
+  storage:
+    local-dir: ${LOCAL_STORAGE_DIR:../uploads}
+  dev-seed:
+    enabled: ${DEV_SEED_ENABLED:false}
+
+logging:
+  level:
+    root: INFO
+    com.hiresense: INFO

@@ -1,0 +1,5 @@
+import React from 'react';
+import { cx } from './utils';
+
+export function LoadingState({ label = 'Loading', className }) { return <div className={cx('flex min-h-40 flex-col items-center justify-center gap-3 text-center', className)} role="status" aria-live="polite"><span className="h-6 w-6 animate-spin rounded-full border-2 border-hs-primary border-t-transparent" aria-hidden="true" /><span className="hs-caption text-slate-400">{label}</span></div>; }
+export function ProgressTimeline({ steps, className }) { return <ol className={cx('border-l border-white/[0.06] pl-5', className)} aria-label="Processing progress">{steps.map((step) => <li key={step.id || step.label} className="relative pb-5 last:pb-0"><span className={cx('absolute -left-[1.45rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-hs-canvas', step.status === 'complete' ? 'bg-hs-success' : step.status === 'active' ? 'bg-hs-primary' : 'bg-slate-600')} /><p className="text-sm font-medium text-slate-200">{step.label}</p>{step.detail && <p className="mt-0.5 hs-caption text-slate-400">{step.detail}</p>}</li>)}</ol>; }
