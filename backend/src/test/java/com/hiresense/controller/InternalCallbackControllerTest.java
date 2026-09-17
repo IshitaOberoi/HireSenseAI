@@ -37,6 +37,9 @@ class InternalCallbackControllerTest {
     @Mock
     private ResumeProcessingPersistenceService persistenceService;
 
+    @Mock
+    private com.hiresense.service.ResumeChunkPersistenceService resumeChunkPersistenceService;
+
     @InjectMocks
     private InternalCallbackController controller;
 

@@ -22,6 +22,7 @@ class GroqLLMProvider(BaseLLMProvider):
         self.api_key = settings.GROQ_API_KEY
         self.model_name = settings.GROQ_MODEL
         self.client = None
+        self.raw_client = None
 
     def _client(self):
         if settings.AI_MOCK_MODE:
@@ -32,8 +33,9 @@ class GroqLLMProvider(BaseLLMProvider):
             try:
                 import instructor
                 from openai import OpenAI
+                self.raw_client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=self.api_key)
                 self.client = instructor.from_openai(
-                    OpenAI(base_url="https://api.groq.com/openai/v1", api_key=self.api_key),
+                    self.raw_client,
                     mode=instructor.Mode.JSON,
                 )
             except Exception as exc:
@@ -62,7 +64,44 @@ class GroqLLMProvider(BaseLLMProvider):
             raise LlmProviderError(f"Groq structured parsing failed: {exc}") from exc
 
     def generate_text(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
-        raise LlmProviderError("Text generation is not used by the resume parsing slice")
+        if settings.AI_MOCK_MODE:
+            logger.warning("AI_MOCK_MODE is enabled; using deterministic text fixture")
+            return {
+                "text": "Based on the provided resume excerpts, the candidate has relevant software engineering experience.",
+                "model": "development-fixture",
+                "tokens_input": len(user_prompt.split()),
+                "tokens_output": 15,
+                "latency_ms": 10,
+            }
+        try:
+            started = time.monotonic()
+            self._client()
+            client = self.raw_client if self.raw_client is not None else self._client()
+            response = client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.1,
+            )
+            latency_ms = int((time.monotonic() - started) * 1000)
+            choice = response.choices[0].message.content or ""
+            usage = getattr(response, "usage", None)
+            tokens_in = getattr(usage, "prompt_tokens", len(user_prompt.split())) if usage else len(user_prompt.split())
+            tokens_out = getattr(usage, "completion_tokens", len(choice.split())) if usage else len(choice.split())
+            logger.info("Groq text generation completed in %dms", latency_ms)
+            return {
+                "text": choice.strip(),
+                "model": self.model_name,
+                "tokens_input": tokens_in,
+                "tokens_output": tokens_out,
+                "latency_ms": latency_ms,
+            }
+        except LlmProviderError:
+            raise
+        except Exception as exc:
+            raise LlmProviderError(f"Groq text generation failed: {exc}") from exc
 
     def _generate_mock_schema_response(self, response_model: Type[T]) -> T:
         if response_model.__name__ == "ParsedResumeSchema":

@@ -28,6 +28,16 @@ export const apiService = {
     return res.json();
   },
 
+  askResumeQuestion: async (resumeId, question) => {
+    const res = await fetch(`${API_BASE}/candidates/resumes/${resumeId}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to ask question about resume");
+    return res.json();
+  },
+
   // Recruiter Job APIs
   createJob: async (jobData) => {
     const res = await fetch(`${API_BASE}/jobs`, {

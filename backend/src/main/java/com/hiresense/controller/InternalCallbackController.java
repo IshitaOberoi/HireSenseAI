@@ -30,6 +30,7 @@ public class InternalCallbackController {
     private final CandidateProfileRepository candidateProfileRepository;
     private final AiRequestLogRepository aiRequestLogRepository;
     private final ResumeProcessingPersistenceService resumeProcessingPersistenceService;
+    private final com.hiresense.service.ResumeChunkPersistenceService resumeChunkPersistenceService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Data
@@ -42,6 +43,7 @@ public class InternalCallbackController {
         private String status; // SUCCESS, FAILED
         private String error_message;
         private Map<String, Object> log_record;
+        private List<Map<String, Object>> chunks;
     }
 
     @PostMapping("/resumes/callback")
@@ -90,6 +92,11 @@ public class InternalCallbackController {
             resumeProcessingPersistenceService.complete(resume.getId(), request.getRaw_resume_text(),
                     request.getParsed_resume_json(), vectorStr, request.getParsing_confidence());
             log.info("Successfully updated resume record in database.");
+
+            // Save semantic chunks for RAG
+            if (request.getChunks() != null && !request.getChunks().isEmpty()) {
+                resumeChunkPersistenceService.saveChunks(resume.getId(), request.getChunks());
+            }
 
             // Update candidate profile fields based on parsed JSON
             if (request.getParsed_resume_json() != null) {

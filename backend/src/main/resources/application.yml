@@ -30,6 +30,9 @@ jwt:
 app:
   ai-service:
     url: ${AI_SERVICE_URL:http://localhost:8000}
+  rag:
+    similarity-threshold: ${RAG_SIMILARITY_THRESHOLD:0.20}
+    top-k: ${RAG_TOP_K:4}
   storage:
     local-dir: ${LOCAL_STORAGE_DIR:../uploads}
   dev-seed:

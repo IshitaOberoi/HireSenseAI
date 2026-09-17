@@ -7,6 +7,7 @@ import requests
 from app.celery_app import celery_app
 from app.core.config import settings
 from app.core.prompts import load_prompt_template
+from app.pipelines.chunker import chunk_resume
 from app.pipelines.models import ParsedResumeSchema
 from app.pipelines.parser import parse_resume_document
 from app.providers.embedding_provider import LocalEmbeddingProvider
@@ -81,6 +82,19 @@ def parse_resume_task(self, resume_id: str, file_key: str) -> bool:
         if len(embedding) != 384:
             raise ValueError(f"Embedding dimension was {len(embedding)}; expected 384")
 
+        # Generate semantic chunks and their 384D embeddings for RAG
+        raw_chunks = chunk_resume(raw_text, parsed)
+        chunks_payload = []
+        for chk in raw_chunks:
+            chunk_vec = embedding_provider.get_embedding(chk["content"])
+            if len(chunk_vec) == 384:
+                chunks_payload.append({
+                    "chunk_index": chk["chunk_index"],
+                    "section_name": chk["section_name"],
+                    "content": chk["content"],
+                    "embedding": chunk_vec,
+                })
+
         latency_ms = int((time.monotonic() - started) * 1000)
         payload = {
             "resume_id": resume_id,
@@ -89,6 +103,7 @@ def parse_resume_task(self, resume_id: str, file_key: str) -> bool:
             "parsed_resume_json": parsed.model_dump_json(),
             "resume_embedding": embedding,
             "parsing_confidence": _confidence(raw_text, parsed),
+            "chunks": chunks_payload,
             "log_record": {
                 "request_type": "PARSING",
                 "model_name": settings.GROQ_MODEL if not settings.AI_MOCK_MODE else "development-fixture",

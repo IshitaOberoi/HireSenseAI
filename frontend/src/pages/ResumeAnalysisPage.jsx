@@ -6,6 +6,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState, ProgressTimeline } from '../components/ui/LoadingState';
 import { SkeletonLines } from '../components/ui/Skeleton';
 import { apiService } from '../services/api';
+import { ResumeRagCard } from '../components/ResumeRagCard';
 
 const candidateId = import.meta.env.VITE_DEV_CANDIDATE_ID || '11111111-1111-1111-1111-111111111111';
 const activeStatuses = new Set(['UPLOADED', 'PROCESSING']);
@@ -63,6 +64,7 @@ function Analysis({ resume }) {
     <div className="grid gap-5 lg:grid-cols-2"><Card><CardHeader><h2 className="hs-title">Executive Summary</h2></CardHeader><CardBody><p className="text-sm leading-6 text-slate-300">{summaryText}</p></CardBody></Card><Card><CardHeader><h2 className="hs-title">Skills</h2></CardHeader><CardBody>{parsed.skills?.length ? <div className="flex flex-wrap gap-2">{parsed.skills.map((skill) => <Badge key={skill} tone="info">{skill}</Badge>)}</div> : <p className="text-sm text-slate-400">No skills were extracted.</p>}</CardBody></Card></div>
     <Card><CardHeader><h2 className="hs-title">Experience</h2></CardHeader><CardBody className="space-y-5">{parsed.experience?.length ? parsed.experience.map((item, index) => <article key={`${item.company}-${index}`} className="border-l border-white/[0.08] pl-4"><h3 className="text-sm font-semibold text-slate-100">{item.title || 'Role'} · {item.company || 'Organization'}</h3><p className="mt-1 hs-caption text-slate-500">{[item.start_date, item.end_date].filter(Boolean).join(' — ')}</p>{item.responsibilities?.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-4 text-sm leading-6 text-slate-400">{item.responsibilities.map((entry, entryIndex) => <li key={entryIndex}>{entry}</li>)}</ul>}</article>) : <p className="text-sm text-slate-400">No experience entries were extracted.</p>}</CardBody></Card>
     <div className="grid gap-5 lg:grid-cols-2"><Card><CardHeader><h2 className="hs-title">Education</h2></CardHeader><CardBody className="space-y-4">{parsed.education?.length ? parsed.education.map((item, index) => <article key={`${item.institution}-${index}`}><h3 className="text-sm font-semibold text-slate-100">{item.institution}</h3><p className="mt-1 text-sm text-slate-400">{[item.degree, item.major].filter(Boolean).join(' · ')}</p><p className="mt-1 hs-caption text-slate-500">{[item.start_date, item.end_date].filter(Boolean).join(' — ')}</p></article>) : <p className="text-sm text-slate-400">No education entries were extracted.</p>}</CardBody></Card><Card><CardHeader><h2 className="hs-title">Projects</h2></CardHeader><CardBody className="space-y-4">{parsed.projects?.length ? parsed.projects.map((item, index) => <article key={`${item.title}-${index}`}><h3 className="text-sm font-semibold text-slate-100">{item.title}</h3><p className="mt-1 text-sm leading-6 text-slate-400">{item.description}</p></article>) : <p className="text-sm text-slate-400">No project entries were extracted.</p>}</CardBody></Card></div>
+    <ResumeRagCard resumeId={resume.id} />
     {resume.rawResumeText && (
       <Card>
         <CardHeader>

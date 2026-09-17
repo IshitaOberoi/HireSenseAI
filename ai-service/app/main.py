@@ -9,8 +9,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from app.pipelines.tasks import parse_resume_task
 from app.providers.embedding_provider import LocalEmbeddingProvider
+from app.providers.llm_provider import GroqLLMProvider
+from app.pipelines.chunker import chunk_resume
+from app.pipelines.models import ParsedResumeSchema
 from app.pipelines.matcher import generate_match_assessment
 from app.pipelines.interview import ats_score, evaluate_answer, generate_questions, retrieve_context
+from app.core.prompts import load_prompt_template
 from app.core.config import settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -18,6 +22,23 @@ logger = logging.getLogger("hiresense-ai")
 app = FastAPI(title="HireSense AI API", description="Resume intelligence and recorded-audio interview analysis. Live copilot and WebRTC are not supported.", version="1.1.0", contact={"name": "HireSense Engineering"})
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_credentials=True, allow_methods=["GET", "POST"], allow_headers=["Content-Type", "Authorization"])
 embedding_provider = LocalEmbeddingProvider()
+llm_provider = GroqLLMProvider()
+
+class EmbedRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=10_000)
+
+class RagChunk(BaseModel):
+    section_name: str
+    content: str
+    similarity: float | None = None
+
+class RagAnswerRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1_000)
+    chunks: list[RagChunk] = Field(default_factory=list)
+
+class ChunkResumeRequest(BaseModel):
+    raw_text: str = Field(default="", max_length=100_000)
+    parsed_json: dict[str, Any] = Field(default_factory=dict)
 
 class ResumeParseRequest(BaseModel):
     s3_key: str = Field(min_length=1, max_length=500)
@@ -103,3 +124,62 @@ async def transcribe_recording(audio: UploadFile = File(...)):
             logger.exception("Whisper transcription failed")
             raise HTTPException(502, "Whisper transcription failed; retry the recording or review its format") from exc
     return {"transcript": "Transcription is ready for review. Configure OPENAI_API_KEY to enable Whisper transcription.", "provider": "whisper-ready", "duration_seconds": None}
+
+@app.post("/api/ai/embed", tags=["RAG"])
+async def embed_text(payload: EmbedRequest):
+    embedding = embedding_provider.get_embedding(payload.text)
+    return {"embedding": embedding, "dimensions": len(embedding)}
+
+@app.post("/api/ai/rag/answer", tags=["RAG"])
+async def rag_answer(payload: RagAnswerRequest):
+    if not payload.chunks:
+        return {
+            "text": "Based on the provided resume excerpts, no relevant information was found to answer this question.",
+            "model": "grounding-guardrail",
+            "tokens_input": 0,
+            "tokens_output": 0,
+            "latency_ms": 0,
+        }
+
+    context_blocks = []
+    for idx, chunk in enumerate(payload.chunks, 1):
+        sim_str = f" (similarity: {chunk.similarity:.2f})" if chunk.similarity is not None else ""
+        context_blocks.append(f"[{idx}. Section: {chunk.section_name}{sim_str}]\n{chunk.content}")
+    context_text = "\n\n".join(context_blocks)
+
+    system_prompt = (
+        "You are the HireSense Career Intelligence RAG Assistant. "
+        "Provide strictly accurate, factual answers to questions about a candidate's resume "
+        "based ONLY on the retrieved excerpts provided below. "
+        "If the retrieved excerpts do not contain the answer, or if the question asks about a technology, "
+        "company, or domain not mentioned in the candidate's resume, clearly state: "
+        "'Based on the provided resume excerpts, this candidate does not mention [topic or skill].'"
+    )
+    try:
+        template = load_prompt_template("resume_rag")
+        user_prompt = template.format(context=context_text, question=payload.question)
+    except Exception:
+        user_prompt = f"[RETRIEVED RESUME CONTEXT]\n{context_text}\n\n[USER QUESTION]\n{payload.question}"
+
+    return llm_provider.generate_text(system_prompt=system_prompt, user_prompt=user_prompt)
+
+@app.post("/api/ai/chunk-resume", tags=["RAG"])
+async def chunk_resume_endpoint(payload: ChunkResumeRequest):
+    parsed = None
+    if payload.parsed_json:
+        try:
+            parsed = ParsedResumeSchema.model_validate(payload.parsed_json)
+        except Exception:
+            parsed = None
+    chunks = chunk_resume(raw_text=payload.raw_text, parsed=parsed)
+    results = []
+    for idx, chunk in enumerate(chunks):
+        emb = embedding_provider.get_embedding(chunk["content"])
+        results.append({
+            "chunk_index": idx,
+            "section_name": chunk["section_name"],
+            "content": chunk["content"],
+            "embedding": emb,
+        })
+    return {"chunks": results, "count": len(results)}
+

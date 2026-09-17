@@ -51,6 +51,8 @@ services:
       - LOCAL_STORAGE_DIR=/uploads
       - AI_SERVICE_URL=http://fastapi-ai:8000
       - DEV_SEED_ENABLED=${DEV_SEED_ENABLED:-true}
+      - RAG_SIMILARITY_THRESHOLD=${RAG_SIMILARITY_THRESHOLD:-0.20}
+      - RAG_TOP_K=${RAG_TOP_K:-4}
     volumes:
       - uploads:/uploads
     depends_on:
