@@ -18,6 +18,7 @@ public class Job {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recruiter_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private User recruiter;
 
     @Column(nullable = false)
@@ -32,7 +33,7 @@ public class Job {
     @Column(name = "experience_years", nullable = false)
     private Integer experienceYears;
 
-    @Column(name = "job_embedding", columnDefinition = "vector(384)")
+    @Column(name = "job_embedding", columnDefinition = "vector(384)", insertable = false, updatable = false)
     private String jobEmbedding; // Mapped as String format '[0.1, 0.2, ...]' for pgvector
 
     @Column(name = "created_at", updatable = false)

@@ -10,5 +10,6 @@ import java.util.UUID;
 @Repository
 public interface ResumeJobMatchRepository extends JpaRepository<ResumeJobMatch, UUID> {
     List<ResumeJobMatch> findByResumeIdOrderByCreatedAtDesc(UUID resumeId);
+    List<ResumeJobMatch> findByResumeCandidateIdOrderByCreatedAtDesc(UUID candidateId);
     long countByResumeId(UUID resumeId);
 }

@@ -30,4 +30,9 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
         ORDER BY similarity_score DESC
         """, nativeQuery = true)
     List<Map<String, Object>> findRankedCandidatesBySimilarity(@Param("jobEmbedding") String jobEmbedding);
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value = "UPDATE jobs SET job_embedding = CAST(:jobEmbedding AS vector) WHERE id = :id", nativeQuery = true)
+    void updateJobEmbedding(@Param("id") UUID id, @Param("jobEmbedding") String jobEmbedding);
 }

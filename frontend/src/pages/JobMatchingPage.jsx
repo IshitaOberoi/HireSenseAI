@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -56,6 +57,8 @@ function alignmentTone(rating) {
 }
 
 export default function JobMatchingPage() {
+  const [searchParams] = useSearchParams();
+  const paramResumeId = searchParams.get('resumeId');
   const [resumes, setResumes] = useState([]);
   const [selectedResumeId, setSelectedResumeId] = useState('');
   const [jobDescription, setJobDescription] = useState('');
@@ -73,14 +76,24 @@ export default function JobMatchingPage() {
       const completed = (data || []).filter(r => r.processingStatus === 'COMPLETED');
       setResumes(completed);
       if (completed.length > 0) {
-        setSelectedResumeId(completed[0].id);
+        if (paramResumeId && completed.some(r => r.id === paramResumeId)) {
+          setSelectedResumeId(paramResumeId);
+        } else {
+          setSelectedResumeId(completed[0].id);
+        }
       }
     } catch (err) {
       setError(err.message || 'Failed to load resumes');
     } finally {
       setLoadingResumes(false);
     }
-  }, []);
+  }, [paramResumeId]);
+
+  useEffect(() => {
+    if (paramResumeId && resumes.some(r => r.id === paramResumeId)) {
+      setSelectedResumeId(paramResumeId);
+    }
+  }, [paramResumeId, resumes]);
 
   const loadPastMatches = useCallback(async (resumeId) => {
     if (!resumeId) return;

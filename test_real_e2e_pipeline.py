@@ -7,7 +7,7 @@ import requests
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 API_BASE = "http://localhost:8080/api"
-CANDIDATE_ID = "11111111-1111-1111-1111-111111111111"
+CANDIDATE_ID = "22222222-2222-2222-2222-222222222222"
 PDF_FILE_PATH = "elena_vance_resume.pdf"
 
 def generate_pdf(filepath: str):

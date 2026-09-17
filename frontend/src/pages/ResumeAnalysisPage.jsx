@@ -91,11 +91,100 @@ function Analysis({ resume }) {
 }
 
 export default function ResumeAnalysisPage() {
-  const [resumes, setResumes] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
-  const load = useCallback(async () => { try { setError(''); const response = await apiService.getResumes(candidateId); setResumes(response); } catch (requestError) { setError(requestError.message); } finally { setLoading(false); } }, []);
+  const [resumes, setResumes] = useState([]);
+  const [selectedResumeId, setSelectedResumeId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      setError('');
+      const response = await apiService.getResumes(candidateId);
+      setResumes(response || []);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => { load(); }, [load]);
-  const latest = resumes[0];
-  useEffect(() => { if (!latest || !activeStatuses.has(latest.processingStatus)) return undefined; const timer = window.setInterval(load, 3000); return () => window.clearInterval(timer); }, [latest, load]);
+
+  useEffect(() => {
+    if (resumes.length > 0 && !selectedResumeId) {
+      setSelectedResumeId(resumes[0].id);
+    }
+  }, [resumes, selectedResumeId]);
+
+  const activeResume = resumes.find(r => r.id === selectedResumeId) || resumes[0];
+
+  useEffect(() => {
+    if (!activeResume || !activeStatuses.has(activeResume.processingStatus)) return undefined;
+    const timer = window.setInterval(load, 3000);
+    return () => window.clearInterval(timer);
+  }, [activeResume, load]);
+
   if (loading) return <LoadingState label="Loading resume intelligence…" />;
-  return <div className="mx-auto max-w-5xl space-y-6"><ResumeUpload onUploaded={async () => { setLoading(true); await load(); }} />{error && <Card><CardBody><p role="alert" className="text-sm text-red-300">{error}</p><Button variant="secondary" size="sm" className="mt-3" onClick={() => { setLoading(true); load(); }}>Try again</Button></CardBody></Card>}{!latest && !error && <EmptyState title="No resume analysis yet" description="Upload a PDF or DOCX resume to begin structured analysis." />}{latest && <><Card><CardHeader><div><h2 className="hs-title">Processing status</h2><p className="mt-1 hs-caption text-slate-400">{latest.fileName}</p></div><Badge tone={statusTone(latest.processingStatus)}>{latest.processingStatus}</Badge></CardHeader><CardBody><ProcessingTimeline status={latest.processingStatus} />{latest.processingStatus === 'FAILED' && <p role="alert" className="mt-5 rounded-md border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{latest.processingError || 'Resume processing failed. Upload a corrected document and try again.'}</p>}</CardBody></Card>{latest.processingStatus === 'COMPLETED' && <Analysis resume={latest} />}</>}</div>;
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <ResumeUpload onUploaded={async () => { setLoading(true); await load(); }} />
+
+      {error && (
+        <Card>
+          <CardBody>
+            <p role="alert" className="text-sm text-red-300">{error}</p>
+            <Button variant="secondary" size="sm" className="mt-3" onClick={() => { setLoading(true); load(); }}>Try again</Button>
+          </CardBody>
+        </Card>
+      )}
+
+      {resumes.length > 1 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-white/[0.08] bg-hs-surface p-4">
+          <div>
+            <p className="text-sm font-medium text-slate-200">Switch Active Resume</p>
+            <p className="hs-caption text-slate-400">Select which resume document to inspect and analyze.</p>
+          </div>
+          <select
+            value={activeResume?.id || ''}
+            onChange={(e) => setSelectedResumeId(e.target.value)}
+            className="rounded-md border border-white/[0.14] bg-hs-canvas px-3 py-2 text-sm text-slate-100 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+          >
+            {resumes.map((r, i) => (
+              <option key={r.id} value={r.id}>
+                {r.fileName} {i === 0 ? '(Latest)' : ''} — {new Date(r.uploadedAt).toLocaleDateString()}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {!activeResume && !error && (
+        <EmptyState title="No resume analysis yet" description="Upload a PDF or DOCX resume to begin structured analysis." />
+      )}
+
+      {activeResume && (
+        <>
+          <Card>
+            <CardHeader>
+              <div>
+                <h2 className="hs-title">Processing status</h2>
+                <p className="mt-1 hs-caption text-slate-400">{activeResume.fileName}</p>
+              </div>
+              <Badge tone={statusTone(activeResume.processingStatus)}>{activeResume.processingStatus}</Badge>
+            </CardHeader>
+            <CardBody>
+              <ProcessingTimeline status={activeResume.processingStatus} />
+              {activeResume.processingStatus === 'FAILED' && (
+                <p role="alert" className="mt-5 rounded-md border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">
+                  {activeResume.processingError || 'Resume processing failed. Upload a corrected document and try again.'}
+                </p>
+              )}
+            </CardBody>
+          </Card>
+          {activeResume.processingStatus === 'COMPLETED' && <Analysis resume={activeResume} />}
+        </>
+      )}
+    </div>
+  );
 }

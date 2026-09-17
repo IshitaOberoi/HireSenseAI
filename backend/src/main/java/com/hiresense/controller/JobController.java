@@ -55,6 +55,11 @@ public class JobController {
         private UUID recruiterId;
     }
 
+    @GetMapping
+    public ResponseEntity<List<Job>> getAllJobs() {
+        return ResponseEntity.ok(jobRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")));
+    }
+
     @PostMapping
     @Transactional
     public ResponseEntity<?> createJob(@Valid @RequestBody CreateJobRequest request) {
@@ -72,13 +77,13 @@ public class JobController {
                     .experienceYears(request.getExperienceYears())
                     .build();
 
-            Job savedJob = jobRepository.save(job);
+            Job savedJob = jobRepository.saveAndFlush(job);
 
             // Step 2: Call FastAPI to generate vector embedding of job description
             String vectorStr = callFastApiForJobEmbedding(request.getDescription());
             if (vectorStr != null) {
+                jobRepository.updateJobEmbedding(savedJob.getId(), vectorStr);
                 savedJob.setJobEmbedding(vectorStr);
-                jobRepository.save(savedJob);
                 log.info("Job description embedding generated and persisted.");
             }
 

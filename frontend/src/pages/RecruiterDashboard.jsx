@@ -22,7 +22,7 @@ export default function RecruiterDashboard({ onSelectJob, jobs, onCreateJob }) {
       onCreateJob(response);
       setFormData({ title: '', company: '', description: '', experienceYears: 0 });
       setShowForm(false);
-    } catch (err) {
+    } catch (_err) {
       console.warn("Backend offline - creating local simulated job posting.");
       // Simulated callback for offline presentation
       onCreateJob({

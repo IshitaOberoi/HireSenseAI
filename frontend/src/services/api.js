@@ -54,7 +54,42 @@ export const apiService = {
     return res.json();
   },
 
+  // Candidate Dashboard, Roadmap & Profile APIs
+  getCandidateDashboard: async (candidateId) => {
+    const res = await fetch(`${API_BASE}/candidates/${candidateId}/dashboard`);
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to fetch dashboard data");
+    return res.json();
+  },
+
+  getCandidateRoadmap: async (candidateId) => {
+    const res = await fetch(`${API_BASE}/candidates/${candidateId}/roadmap`);
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to fetch roadmap data");
+    return res.json();
+  },
+
+  getCandidateProfile: async (candidateId) => {
+    const res = await fetch(`${API_BASE}/candidates/${candidateId}/profile`);
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to fetch candidate profile");
+    return res.json();
+  },
+
+  updateCandidateProfile: async (candidateId, profileData) => {
+    const res = await fetch(`${API_BASE}/candidates/${candidateId}/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profileData)
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to update profile");
+    return res.json();
+  },
+
   // Recruiter Job APIs
+  getRecruiterJobs: async () => {
+    const res = await fetch(`${API_BASE}/jobs`);
+    if (!res.ok) throw new Error("Failed to fetch recruiter jobs");
+    return res.json();
+  },
+
   createJob: async (jobData) => {
     const res = await fetch(`${API_BASE}/jobs`, {
       method: 'POST',

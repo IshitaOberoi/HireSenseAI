@@ -9,6 +9,7 @@ const navigation = [
   { to: '/jobs', label: 'Jobs' },
   { to: '/mockprep', label: 'MockPrep' },
   { to: '/roadmap', label: 'Career Roadmap' },
+  { to: '/recruiter', label: 'Recruiter' },
 ];
 
 export function Header({ onOpenCommandPalette, commandButtonRef }) {

@@ -16,7 +16,7 @@ export default function JobMatchingWorkspace({ job, onBack }) {
       if (data.length > 0) {
         setSelectedCandidate(data[0]);
       }
-    } catch (err) {
+    } catch (_err) {
       console.warn("Backend offline - generating simulated match diagnostics.");
       
       // Simulated matching profiles for recruiter presentation

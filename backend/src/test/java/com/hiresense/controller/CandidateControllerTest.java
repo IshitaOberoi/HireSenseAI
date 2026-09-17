@@ -33,6 +33,15 @@ class CandidateControllerTest {
     @Mock
     private CandidateProfileRepository candidateProfileRepository;
 
+    @Mock
+    private com.hiresense.service.CandidateDashboardService candidateDashboardService;
+
+    @Mock
+    private com.hiresense.service.CandidateRoadmapService candidateRoadmapService;
+
+    @Mock
+    private com.hiresense.service.CandidateProfileService candidateProfileService;
+
     @InjectMocks
     private CandidateController controller;
 

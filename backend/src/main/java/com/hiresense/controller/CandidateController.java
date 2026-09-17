@@ -27,6 +27,9 @@ public class CandidateController {
     private final StorageService storageService;
     private final ResumeRepository resumeRepository;
     private final CandidateProfileRepository candidateProfileRepository;
+    private final com.hiresense.service.CandidateDashboardService candidateDashboardService;
+    private final com.hiresense.service.CandidateRoadmapService candidateRoadmapService;
+    private final com.hiresense.service.CandidateProfileService candidateProfileService;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${app.ai-service.url:http://localhost:8000}")
@@ -104,6 +107,54 @@ public class CandidateController {
         return resumeRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{candidateId}/dashboard")
+    public ResponseEntity<?> getDashboard(@PathVariable UUID candidateId) {
+        try {
+            return ResponseEntity.ok(candidateDashboardService.getDashboard(candidateId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to retrieve dashboard for candidate {}", candidateId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{candidateId}/roadmap")
+    public ResponseEntity<?> getRoadmap(@PathVariable UUID candidateId) {
+        try {
+            return ResponseEntity.ok(candidateRoadmapService.getRoadmap(candidateId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to retrieve roadmap for candidate {}", candidateId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{candidateId}/profile")
+    public ResponseEntity<?> getProfile(@PathVariable UUID candidateId) {
+        try {
+            return ResponseEntity.ok(candidateProfileService.getProfile(candidateId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to retrieve profile for candidate {}", candidateId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{candidateId}/profile")
+    public ResponseEntity<?> updateProfile(@PathVariable UUID candidateId, @RequestBody com.hiresense.service.CandidateProfileService.ProfileDto request) {
+        try {
+            return ResponseEntity.ok(candidateProfileService.updateProfile(candidateId, request));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to update profile for candidate {}", candidateId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
     }
 
     private void triggerAiParserService(UUID resumeId, String fileKey) {
