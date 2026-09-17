@@ -11,7 +11,7 @@ from app.pipelines.tasks import parse_resume_task
 from app.providers.embedding_provider import LocalEmbeddingProvider
 from app.providers.llm_provider import GroqLLMProvider
 from app.pipelines.chunker import chunk_resume
-from app.pipelines.models import ParsedResumeSchema
+from app.pipelines.models import ParsedResumeSchema, ParsedJobDescriptionSchema
 from app.pipelines.matcher import generate_match_assessment
 from app.pipelines.interview import ats_score, evaluate_answer, generate_questions, retrieve_context
 from app.core.prompts import load_prompt_template
@@ -39,6 +39,19 @@ class RagAnswerRequest(BaseModel):
 class ChunkResumeRequest(BaseModel):
     raw_text: str = Field(default="", max_length=100_000)
     parsed_json: dict[str, Any] = Field(default_factory=dict)
+
+class JobParseRequest(BaseModel):
+    job_description: str = Field(min_length=10, max_length=50_000)
+
+class ExplainMatchRequest(BaseModel):
+    job_title: str = Field(default="Position")
+    company: str | None = Field(default=None)
+    job_summary: str = Field(default="")
+    matched_required_skills: list[str] = Field(default_factory=list)
+    missing_required_skills: list[str] = Field(default_factory=list)
+    matched_preferred_skills: list[str] = Field(default_factory=list)
+    missing_preferred_skills: list[str] = Field(default_factory=list)
+    evidence_chunks: list[RagChunk] = Field(default_factory=list)
 
 class ResumeParseRequest(BaseModel):
     s3_key: str = Field(min_length=1, max_length=500)
@@ -182,4 +195,64 @@ async def chunk_resume_endpoint(payload: ChunkResumeRequest):
             "embedding": emb,
         })
     return {"chunks": results, "count": len(results)}
+
+@app.post("/api/ai/jobs/parse", tags=["Job Matching"])
+async def parse_job_endpoint(payload: JobParseRequest):
+    try:
+        system_prompt = load_prompt_template("parse_job_description")
+    except Exception:
+        system_prompt = "Extract structured requirements from this job description into JSON."
+    
+    parsed = llm_provider.generate_structured(
+        system_prompt=system_prompt,
+        user_prompt=payload.job_description,
+        response_model=ParsedJobDescriptionSchema,
+    )
+    embedding = embedding_provider.get_embedding(payload.job_description)
+    return {
+        "parsed": parsed.model_dump(),
+        "embedding": embedding,
+        "dimensions": len(embedding),
+    }
+
+@app.post("/api/ai/jobs/explain-match", tags=["Job Matching"])
+async def explain_match_endpoint(payload: ExplainMatchRequest):
+    evidence_blocks = []
+    for idx, chunk in enumerate(payload.evidence_chunks, 1):
+        sim_str = f" (similarity: {chunk.similarity:.2f})" if chunk.similarity is not None else ""
+        evidence_blocks.append(f"[{idx}. Section: {chunk.section_name}{sim_str}]\n{chunk.content}")
+    evidence_context = "\n\n".join(evidence_blocks) if evidence_blocks else "No direct resume evidence chunks available."
+
+    system_prompt = (
+        "You are the HireSense Career Intelligence Job Match Evaluator. "
+        "Provide an objective, strictly grounded 'Why You're a Match' analysis based ONLY on the "
+        "provided job requirements, structured match signals, and retrieved resume evidence. "
+        "Do not invent credentials or extrapolate. Do not compute or alter numerical scores."
+    )
+    try:
+        template = load_prompt_template("job_matching_explanation")
+        user_prompt = template.format(
+            job_title=payload.job_title,
+            company=payload.company or "Not specified",
+            job_summary=payload.job_summary,
+            matched_required_skills=", ".join(payload.matched_required_skills) or "None identified",
+            missing_required_skills=", ".join(payload.missing_required_skills) or "None identified",
+            matched_preferred_skills=", ".join(payload.matched_preferred_skills) or "None identified",
+            missing_preferred_skills=", ".join(payload.missing_preferred_skills) or "None identified",
+            evidence_context=evidence_context,
+        )
+    except Exception:
+        user_prompt = (
+            f"[TARGET JOB]\nTitle: {payload.job_title}\nCompany: {payload.company}\n\n"
+            f"[RETRIEVED RESUME EVIDENCE]\n{evidence_context}"
+        )
+
+    result = llm_provider.generate_text(system_prompt=system_prompt, user_prompt=user_prompt)
+    return {
+        "explanation": result["text"],
+        "model": result["model"],
+        "tokens_input": result.get("tokens_input", 0),
+        "tokens_output": result.get("tokens_output", 0),
+        "latency_ms": result.get("latency_ms", 0),
+    }
 

@@ -33,3 +33,13 @@ class ParsedResumeSchema(BaseModel):
     experience: List[ExperienceItem] = Field(default=[], description="Professional work experience details")
     projects: List[ProjectItem] = Field(default=[], description="Projects built by the candidate")
     certifications: List[str] = Field(default=[], description="List of professional certifications")
+
+class ParsedJobDescriptionSchema(BaseModel):
+    title: str = Field(description="Normalized job title")
+    company: Optional[str] = Field(None, description="Company name if mentioned")
+    summary: str = Field(description="Concise summary of the role")
+    required_skills: List[str] = Field(default=[], description="Must-have technical and domain skills")
+    preferred_skills: List[str] = Field(default=[], description="Nice-to-have or bonus skills")
+    experience_years_required: Optional[int] = Field(None, description="Minimum years of experience required")
+    education_requirements: List[str] = Field(default=[], description="Academic requirements if specified")
+    key_responsibilities: List[str] = Field(default=[], description="Core duties and technical expectations")

@@ -38,6 +38,22 @@ export const apiService = {
     return res.json();
   },
 
+  matchJobDescription: async (resumeId, jobDescription) => {
+    const res = await fetch(`${API_BASE}/candidates/resumes/${resumeId}/match`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobDescription })
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Job match failed");
+    return res.json();
+  },
+
+  getJobMatchesForResume: async (resumeId) => {
+    const res = await fetch(`${API_BASE}/candidates/resumes/${resumeId}/matches`);
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to fetch matches");
+    return res.json();
+  },
+
   // Recruiter Job APIs
   createJob: async (jobData) => {
     const res = await fetch(`${API_BASE}/jobs`, {

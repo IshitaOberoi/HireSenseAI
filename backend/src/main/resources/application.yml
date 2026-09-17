@@ -33,6 +33,16 @@ app:
   rag:
     similarity-threshold: ${RAG_SIMILARITY_THRESHOLD:0.20}
     top-k: ${RAG_TOP_K:4}
+  matching:
+    weights:
+      required-skills: ${MATCH_WEIGHT_REQUIRED_SKILLS:0.40}
+      semantic-similarity: ${MATCH_WEIGHT_SEMANTIC:0.30}
+      preferred-skills: ${MATCH_WEIGHT_PREFERRED_SKILLS:0.15}
+      experience-evidence: ${MATCH_WEIGHT_EVIDENCE:0.15}
+    evidence:
+      top-k: ${MATCH_EVIDENCE_TOP_K:4}
+      threshold: ${MATCH_EVIDENCE_THRESHOLD:0.25}
+      max-evidence-chunks: ${MATCH_MAX_EVIDENCE_CHUNKS:2}
   storage:
     local-dir: ${LOCAL_STORAGE_DIR:../uploads}
   dev-seed:

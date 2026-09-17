@@ -112,4 +112,16 @@ class GroqLLMProvider(BaseLLMProvider):
                 skills=["Java", "Spring Boot", "Python"], education=[],
                 experience=[], projects=[], certifications=[],
             )
+        if response_model.__name__ == "ParsedJobDescriptionSchema":
+            from app.pipelines.models import ParsedJobDescriptionSchema
+            return ParsedJobDescriptionSchema(
+                title="Senior Distributed Systems Engineer",
+                company="CloudFlow Systems",
+                summary="Lead design and implementation of distributed streaming pipelines.",
+                required_skills=["Java", "Spring Boot", "Apache Kafka", "PostgreSQL"],
+                preferred_skills=["Docker", "Kubernetes", "Redis"],
+                experience_years_required=5,
+                education_requirements=["Bachelor's degree in Computer Science or equivalent"],
+                key_responsibilities=["Architect distributed streaming pipelines", "Maintain high availability"],
+            )
         raise LlmProviderError(f"No explicit mock fixture exists for {response_model.__name__}")
